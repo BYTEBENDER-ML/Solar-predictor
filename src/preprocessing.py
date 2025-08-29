@@ -2,6 +2,9 @@ import pandas as pd
 import numpy as np
 from typing import Optional, Tuple, List, Dict, Any
 from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import warnings
 
 # Define the features to keep
@@ -224,3 +227,97 @@ def _create_features(df: pd.DataFrame, numerical_cols: List[str]) -> pd.DataFram
         df_enhanced['maintenance_frequency'] = df_enhanced['maintenance_count'] / (df_enhanced['panel_age'] + 1)
     
     return df_enhanced
+
+def _train_and_evaluate(df: pd.DataFrame, target_col: str = 'efficiency'):
+    """
+    Trains a model and evaluates its performance on the provided data.
+    
+    Args:
+        df (pd.DataFrame): The input DataFrame containing both features and the target.
+        target_col (str): The name of the target column.
+    """
+    if target_col not in df.columns:
+        raise ValueError(f"Target column '{target_col}' not found in the DataFrame.")
+    
+    # Split the data into training and testing sets
+    X = df.drop(columns=[target_col])
+    y = df[target_col]
+    
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    print("Preprocessing training data...")
+    # Preprocess the training data - pass the full dataframe with target
+    train_df = X_train.copy()
+    train_df[target_col] = y_train
+    X_train_processed, _, scaler, label_encoders = preprocess_data(train_df, is_test=False)
+    
+    # Store the final column names for the test set
+    fit_columns = X_train_processed.columns.tolist()
+
+    print("Preprocessing testing data...")
+    # Preprocess the testing data using the fitted scaler and encoders from the training data
+    test_df = X_test.copy()
+    test_df[target_col] = y_test
+    X_test_processed, _, _, _ = preprocess_data(
+        test_df,
+        is_test=True,
+        fit_columns=fit_columns,
+        scaler=scaler,
+        label_encoders=label_encoders
+    )
+
+    print("Training the RandomForestRegressor model...")
+    # Initialize and train the model
+    model = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
+    model.fit(X_train_processed, y_train)
+
+    print("Making predictions on the test data...")
+    # Make predictions
+    predictions = model.predict(X_test_processed)
+
+    print("\n--- Model Evaluation ---")
+    # Calculate and print evaluation metrics
+    mae = mean_absolute_error(y_test, predictions)
+    mse = mean_squared_error(y_test, predictions)
+    rmse = np.sqrt(mse)
+    r2 = r2_score(y_test, predictions)
+    
+    print(f"Mean Absolute Error (MAE): {mae:.4f}")
+    print(f"Root Mean Squared Error (RMSE): {rmse:.4f}")
+    print(f"R-squared (R2) Score: {r2:.4f}")
+    
+    return model, predictions, mae, rmse, r2
+
+# Example usage:
+if __name__ == "__main__":
+    # Create a dummy DataFrame to demonstrate the process
+    # In a real-world scenario, you would load this from a file (e.g., pd.read_csv('your_data.csv'))
+    data = {
+        'id': range(200),
+        'temperature': np.random.uniform(20, 40, 200),
+        'irradiance': np.random.uniform(500, 1000, 200),
+        'humidity': np.random.uniform(30, 80, 200),
+        'panel_age': np.random.uniform(1, 10, 200),
+        'maintenance_count': np.random.randint(0, 5, 200),
+        'soiling_ratio': np.random.uniform(0, 0.5, 200),
+        'voltage': np.random.uniform(20, 30, 200),
+        'current': np.random.uniform(5, 10, 200),
+        'module_temperature': np.random.uniform(25, 50, 200),
+        'cloud_coverage': np.random.uniform(0, 1, 200),
+        'wind_speed': np.random.uniform(0, 15, 200),
+        'pressure': np.random.uniform(980, 1020, 200),
+        'string_id': ['A', 'B'] * 100,
+        'error_code': ['None', 'Code1'] * 100,
+        'installation_type': ['Rooftop', 'Ground'] * 100
+    }
+    
+    # Create a simple target variable, with some noise
+    df = pd.DataFrame(data)
+    df['efficiency'] = df['irradiance'] * 0.5 + df['current'] * 0.3 + np.random.normal(0, 2, 200)
+
+    # Run the training and evaluation process
+    try:
+        trained_model, predictions, mae, rmse, r2 = _train_and_evaluate(df)
+        print("\nScript completed successfully.")
+    except ValueError as e:
+        print(f"Error: {e}")
