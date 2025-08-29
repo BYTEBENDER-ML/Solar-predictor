@@ -5,28 +5,39 @@ import pandas as pd
 def extract_and_setup_data():
     """Extract data from data.zip and set up the directory structure."""
     
+    # Debug: show where we're looking
+    print("Current working directory:", os.getcwd())
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    print("Script directory:", script_dir)
+    print("Files in script directory:", os.listdir(script_dir))
+
+    # Look for data.zip next to this script
+    zip_path = os.path.join(script_dir, 'data.zip')
+    print("Looking for:", zip_path)
+
     # Check if data.zip exists
-    if not os.path.exists('data.zip'):
-        print("data.zip not found in the current directory")
+    if not os.path.exists(zip_path):
+        print("data.zip not found in the script directory")
         return False
     
-    # Create data directory if it doesn't exist
-    if not os.path.exists('data'):
-        os.makedirs('data')
+    # Create data directory if it doesn't exist (place it next to script)
+    data_dir = os.path.join(script_dir, 'data')
+    if not os.path.exists(data_dir):
+        os.makedirs(data_dir)
     
     # Extract data
     try:
-        with zipfile.ZipFile('data.zip', 'r') as zip_ref:
-            zip_ref.extractall('data')
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(data_dir)
         print("Data extracted successfully to 'data/' directory")
         
         # List extracted files
-        files = os.listdir('data')
+        files = os.listdir(data_dir)
         print(f"Extracted files: {files}")
         
         # Check if train.csv and test.csv exist
-        train_path = os.path.join('data', 'train.csv')
-        test_path = os.path.join('data', 'test.csv')
+        train_path = os.path.join(data_dir, 'train.csv')
+        test_path = os.path.join(data_dir, 'test.csv')
         
         if os.path.exists(train_path):
             # Load and check train data
